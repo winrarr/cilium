@@ -135,8 +135,8 @@ func (r *mcsAPIEndpointSliceMirrorReconciler) getAndCleanupDerivedEndpointSlice(
 			derivedEpSlice = &epSlice
 			continue
 		}
-		if err := r.Client.Delete(ctx, &epSlice); err != nil {
-			return nil, client.IgnoreNotFound(err)
+		if err := r.Client.Delete(ctx, &epSlice); client.IgnoreNotFound(err) != nil {
+			return nil, err
 		}
 	}
 	return derivedEpSlice, nil
@@ -166,14 +166,13 @@ func (r *mcsAPIEndpointSliceMirrorReconciler) shouldMirrorLocalEndpointSlice(
 	valIPFamilies, ok := derivedService.Annotations[annotation.SupportedIPFamilies]
 	ipFamilies, err := mcsapitypes.IPFamiliesFromString(valIPFamilies)
 	if !ok || err != nil {
-		// Fallback to service IPFamilies if the annotation is not set.
-		// This is likely because we are upgrading to Cilium 1.19
-		ipFamilies = derivedService.Spec.IPFamilies
-	}
-	if !slices.Contains(ipFamilies, corev1.IPFamily(localEpSlice.AddressType)) {
+		r.Logger.Warn(
+			"Derived Service has no supported IP families annotation or is invalid, skipping mirroring EndpointSlice",
+			logfields.Request, client.ObjectKeyFromObject(localEpSlice),
+		)
 		return false, nil
 	}
-	return true, nil
+	return slices.Contains(ipFamilies, corev1.IPFamily(localEpSlice.AddressType)), nil
 }
 
 // getFilteredPorts returns a filtered version of the local EndpointSlice ports
@@ -254,10 +253,6 @@ func (r *mcsAPIEndpointSliceMirrorReconciler) updateDerivedEndpointSlice(
 	derivedEpSlice.Labels[discoveryv1.LabelServiceName] = derivedService.Name
 	derivedEpSlice.Labels[mcsapiv1beta1.LabelSourceCluster] = r.clusterName
 	derivedEpSlice.Labels[discoveryv1.LabelManagedBy] = endpointSliceLocalMCSAPIControllerName
-
-	if derivedEpSlice.Annotations == nil {
-		derivedEpSlice.Annotations = map[string]string{}
-	}
 	derivedEpSlice.Labels[localEndpointSliceLabel] = localEpSlice.Name
 
 	derivedEpSlice.AddressType = localEpSlice.AddressType

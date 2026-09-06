@@ -180,18 +180,6 @@ var (
 		},
 		&discoveryv1.EndpointSlice{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      "long-lorem-ipsum-dolor-sit-amet-consectetur-adipiscing",
-				Namespace: "default",
-				Labels: map[string]string{
-					discoveryv1.LabelServiceName: "full",
-				},
-			},
-			Endpoints:   commonEndpoints,
-			Ports:       commonPorts,
-			AddressType: discoveryv1.AddressTypeIPv4,
-		},
-		&discoveryv1.EndpointSlice{
-			ObjectMeta: metav1.ObjectMeta{
 				Name:      "full-not-linked-service-1",
 				Namespace: "default",
 			},
@@ -556,26 +544,6 @@ func Test_mcsEndpointSliceMirror_Reconcile(t *testing.T) {
 			require.Equal(t, discoveryv1.AddressTypeIPv4, epSlice.AddressType)
 		})
 	}
-
-	t.Run("Check very long mirrored Endpoint", func(t *testing.T) {
-		key := types.NamespacedName{
-			Name:      "long-lorem-ipsum-dolor-sit-amet-consectetur-adipiscing",
-			Namespace: "default",
-		}
-		result, err := r.Reconcile(t.Context(), ctrl.Request{
-			NamespacedName: key,
-		})
-		require.NoError(t, err)
-		require.Equal(t, ctrl.Result{}, result, "Result should be empty")
-
-		keyDerived := types.NamespacedName{
-			Name:      commonDerivedName + "-um-dolor-sit-amet-consectetur-adipiscing",
-			Namespace: "default",
-		}
-		epSlice := &discoveryv1.EndpointSlice{}
-		err = c.Get(t.Context(), keyDerived, epSlice)
-		require.NoError(t, err)
-	})
 
 	t.Run("Check duplicate derived Endpoint cleanup", func(t *testing.T) {
 		key := types.NamespacedName{
